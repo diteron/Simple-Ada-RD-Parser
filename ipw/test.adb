@@ -1,13 +1,14 @@
-function Increment_By return Integer
+function factorial (Num : Integer) return Integer
 is
-S : Integer;
-B : Float;
+fact : Integer;
+i : Integer;
 begin
-	if B /= 0 then 
-	B := I + 7 - 7;
-	else
-	I := B;
-	end if;
-	
-	return 1;
-end;
+	fact := 1;
+	i := 1;
+	while  i <= Num loop
+		fact := fact * i;
+		i := i + 1;
+	end loop;
+
+    return fact;
+end factorial;
