@@ -48,7 +48,7 @@ extern int lexicalError;
 [ \n\t\f]	;
 
 . {
-	lexicalError = 1;
+	lexicalError = TRUE;
 	fprintf(stderr, "Lexical error: unexpexted character \"%s\" in line %d\n", yytext, yylineno);
 }
 %%

@@ -1,23 +1,13 @@
-function Increment_By (I : Integer; I2 : Integer Res : Integer) return Integer
+function Increment_By return Integer
 is
-B : Integer
-
+S : Integer;
+B : Float;
 begin
-   if I < 0 then
-	I := I + 1
-	B := 5;
-	elsif I = 5 then
-	B := I + 5;
-	elseif := B /= 0; 
-	B := I;
+	if B /= 0 then 
+	B := I + 7 - 7;
 	else
-	I := B
+	I := B;
 	end if;
-	
-	while I < 10 loop
-		I := I + 1;
-		I := B;
-	end loop;
 	
 	return 1;
 end;

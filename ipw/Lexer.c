@@ -885,7 +885,7 @@ case 32:
 YY_RULE_SETUP
 #line 50 "Lexer.l"
 {
-	lexicalError = 1;
+	lexicalError = TRUE;
 	fprintf(stderr, "Lexical error: unexpexted character \"%s\" in line %d\n", yytext, yylineno);
 }
 	YY_BREAK

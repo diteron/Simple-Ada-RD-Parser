@@ -1,5 +1,8 @@
 #pragma once
 
+#define TRUE 1
+#define FALSE 0
+
 enum Token {
 	FUNC = 258,
 	IDENTIFIER,

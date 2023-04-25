@@ -1,0 +1,68 @@
+*E is empty string
+
+function_declaration -> “function” IDENTIFIER opt_parameters func_return function_body end_func;
+						   
+opt_parameters -> “(” parameters_list “)” | E;
+
+parameters_list -> parameter next_parameters;
+
+next_parameters -> ‘;’ parameter next_parameters;
+
+parameter -> IDENTIFIER “:” TYPE;
+
+func_return -> “return” TYPE;
+
+func_body -> “is” opt_variables “begin” statements_list;
+
+opt_variables -> parameter “;” [opt_variables] | E;
+
+end_func -> “end” [IDENTIFIER] “;”;
+
+statements_list -> statement [statements_list];
+
+statement -> assign_statement | compound_statement | return_statement;
+			 
+assign_statement -> IDENTIFIER “:=” expression “;”;
+
+expression -> simple_expression next_expression;
+
+next_expression -> relational expression next_expression | E;
+
+relational -> “<” | “<=” | “=” | “>” | “>= | “/=”;
+
+simple_expression -> term [added] | adding term added;
+
+term -> factor multiplier;
+
+added -> adding term added | E;
+
+adding -> “+” | “-”;
+
+factor -> number | IDENTIFIER | “(” simple_expression “)”;
+
+number -> INTEGER | DECIMAL;
+
+multiplier -> multiplying factor multiplier;
+
+multiplying -> “*” | “/”;
+
+compound_statement -> if_statement | while_statement;
+
+if_statement -> “if” if_cond_part statements_list opt_elsif opt_else endif;
+  
+if_cond_part -> “if” expression “then”;
+
+opt_elsif -> “elsif” if_cond_part statements_list opt_elsif
+            | E;
+			
+opt_else -> “else” statements_list | E;
+
+endif -> “end” “if” “;”;
+
+while_statement -> while_cond_part statements_list end_loop;
+
+while_cond_part -> “while” expression “loop”;
+
+end_loop -> “end” “loop” “;”;
+
+return_statement -> “return” expression “;”;
