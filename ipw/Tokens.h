@@ -1,7 +1,7 @@
 #pragma once
 
 enum Token {
-	PROC = 258,
+	FUNC = 258,
 	IDENTIFIER,
 	TYPE,
 	ASSIGN,
@@ -19,4 +19,5 @@ enum Token {
 	ELSE,
 	WHILE,
 	LOOP,
+	RETURN
 };

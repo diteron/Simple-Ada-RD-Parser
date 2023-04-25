@@ -4,6 +4,8 @@
 #include "Tokens.h"
 #include "Parser.h"
 
+#define DEBUG
+
 extern int yylex();
 extern char* yytext;
 extern FILE* yyin;
@@ -12,9 +14,11 @@ extern int yylineno;
 Token* tokensStream;
 int currentToken;
 int lexicalError = 0;
+int hasReturn = 0;
+int missSemicolon = 0;
 
 int parser_main(int argc, char* argv[]) {
-	fopen_s(&yyin, "ada.txt", "r");
+	fopen_s(&yyin, "test.adb", "r");
 
 	tokensStream = calloc(20, sizeof(Token));
 	if (tokensStream == NULL) {
@@ -26,16 +30,22 @@ int parser_main(int argc, char* argv[]) {
 
 	if (tokensNum > 0) {
 		int parseResult = procedure_specification();
-		if (parseResult && !lexicalError) {
+		if (parseResult && !lexicalError && hasReturn && !missSemicolon) {
 			printf("Success parse\n");
 		}
 		else if (!parseResult) {
 			printParseError();
 		}
+		
 
+#ifdef  DEBUG
 		printf("\n");
 		for (int i = 0; i < tokensNum; ++i) {
 			printf("%d. Token No: %d, token text: %s\n", i, tokensStream[i].tokenNo, tokensStream[i].tokenText);
+		}
+#endif //  DEBUG
+		
+		for (int i = 0; i < tokensNum; ++i) {
 			freeTokenText(tokensStream[i].tokenText);
 		}
 	}
@@ -96,10 +106,13 @@ int getAllTokens(int size) {
 			return i;
 		}
 		strcpy_s(tokensStream[i].tokenText, yytextLen * sizeof(char), yytext);
-
+		
 		tokensStream[i].tokenLineNo = yylineno;
 
+#ifdef DEBUG
 		printf("%d. Token No: %d, token text: %s\n", i, tokensStream[i].tokenNo, tokensStream[i].tokenText);
+#endif // DEBUG
+
 		++i;
 	}
 
@@ -120,13 +133,27 @@ int getAllTokens(int size) {
 //////////////////////////////////////////////////
 
 void printParseError() {
-	fprintf(stderr, "Syntax error unexpected \"%s\" in line %d\n",
-	tokensStream[currentToken].tokenText, tokensStream[currentToken].tokenLineNo);
+	if (tokensStream[currentToken].tokenText[0] != '\0') {
+		fprintf(stderr, "Syntax error: unexpected \"%s\" in line %d\n",
+		tokensStream[currentToken].tokenText, tokensStream[currentToken].tokenLineNo);
+	}
+	else {
+		fprintf(stderr, "Syntax error: unexpected EOF in line %d\n", tokensStream[currentToken].tokenLineNo);
+	}
 }
 
 // Проверить является ли текущий токен в потоке ключевым словом
 int keyWord(int keyWord) {
 	int res = tokensStream[currentToken].tokenNo == keyWord;
+
+	// Ошибка об отсутствующей ';', если ';' отсутствует после последнего параметра
+	// при объявлении функции, то ошибка не выводится
+	if (!res && keyWord == ';' && tokensStream[currentToken].tokenNo != ')') {
+		fprintf(stderr, "Syntax error: missed ';' in line %d\n", tokensStream[currentToken - 1].tokenLineNo);
+		++missSemicolon;
+		return SUCCESS_PARSE;		// Возврат 1 для проверки следующей инструкции 
+	}
+
 	if (res) { 
 		++currentToken;
 	}
@@ -135,13 +162,18 @@ int keyWord(int keyWord) {
 }
 
 int procedure_specification() {
-	if (keyWord(PROC)) {
+	if (keyWord(FUNC)) {
 		if (keyWord(IDENTIFIER)) {
 			int identifierToken = currentToken - 1;
 			if (opt_parameters()) {
-				if (procedure_body(identifierToken)) {
-					if (end_proc(identifierToken)) {
-						return SUCCESS_PARSE;
+				if (func_return()) {
+					if (procedure_body()) {
+						if (end_proc(identifierToken)) {
+							if (!hasReturn) {
+								printf("Missed return statement in function %s\n", tokensStream[identifierToken].tokenText);
+							}
+							return SUCCESS_PARSE;
+						}
 					}
 				}
 			}
@@ -200,7 +232,17 @@ int parameter() {
 	return FAILED_PARSE;
 }
 
-int procedure_body(int identifierToken) {
+int func_return() {
+	if (keyWord(RETURN)) {
+		if (keyWord(TYPE)) {
+			return SUCCESS_PARSE;
+		}
+	}
+
+	return FAILED_PARSE;
+}
+
+int procedure_body() {
 	if (keyWord(IS)) {
 		if (opt_variables()) {
 			if (keyWord(BEGiN)) {
@@ -233,6 +275,7 @@ int opt_variables() {
 int end_proc(int identifierToken) {
 	if (keyWord(END)) {
 		if (keyWord(IDENTIFIER)) {
+			// Проверка совпадает ли идентификатор с идентификатором функции при ее объвлении
 			if (!strcmp(tokensStream[currentToken - 1].tokenText, tokensStream[identifierToken].tokenText)) {
 				if (keyWord(';')) {
 					return SUCCESS_PARSE;
@@ -267,26 +310,41 @@ int statement() {
 	if (assign_statement()) {
 		return SUCCESS_PARSE;
 	}
+	int errToken = currentToken;
 
-	int posForErr = currentToken;
-	currentToken = savePos;
+	
+	//currentToken = savePos;
 	if (compound_statement()) {
 		return SUCCESS_PARSE;
 	}
 
-	currentToken = posForErr;
+	if (errToken < currentToken) {
+		errToken = currentToken;
+	}
+
+	currentToken = savePos;
+	if (return_statement()) {
+		return SUCCESS_PARSE;
+	}
+
+	if (errToken < currentToken) {
+		errToken = currentToken;
+	}
+
+	currentToken = errToken;
 	return FAILED_PARSE;
 }
 
 int assign_statement() {
 	if (keyWord(IDENTIFIER)) {
 		if (keyWord(ASSIGN)) {
-			if (simple_expression()) {
+			if (expression()) {
 				if (keyWord(';')) {
 					return SUCCESS_PARSE;
 				}
 			}
 		}
+		--currentToken;		// Возврат назад если идентификатор корректный, но дальше нет присваивания
 	}
 
 	return FAILED_PARSE;
@@ -404,9 +462,14 @@ int compound_statement() {
 		return SUCCESS_PARSE;
 	}
 
+	int posForErr = currentToken;
 	currentToken = savePos;
 	if (while_statement()) {
 		return SUCCESS_PARSE;
+	}
+
+	if (posForErr > currentToken) {
+		currentToken = posForErr;
 	}
 
 	return FAILED_PARSE;
@@ -430,7 +493,7 @@ int if_statement() {
 
 int if_cond_part() {
 	if (keyWord(IF)) {
-		if (condition()) {
+		if (expression()) {
 			if (keyWord(THEN)) {
 				return SUCCESS_PARSE;
 			}
@@ -440,9 +503,9 @@ int if_cond_part() {
 	return FAILED_PARSE;
 }
 
-int condition() {
+int expression() {
 	if (simple_expression()) {
-		if (next_condition()) {
+		if (next_expression()) {
 			return SUCCESS_PARSE;
 		}
 	}
@@ -450,10 +513,10 @@ int condition() {
 	return FAILED_PARSE;
 }
 
-int next_condition() {
+int next_expression() {
 	if (relational()) {
-		if (condition()) {
-			if (next_condition()) {
+		if (expression()) {
+			if (next_expression()) {
 				return SUCCESS_PARSE;
 			}
 		}
@@ -490,7 +553,7 @@ int opt_elsif() {
 }
 
 int elsif_cond_part() {
-	if (condition()) {
+	if (expression()) {
 		if (keyWord(THEN)) {
 			return SUCCESS_PARSE;
 		}
@@ -524,5 +587,50 @@ int endif() {
 }
 
 int while_statement() {
+	if (while_cond_part()) {
+		if (statements_list()) {
+			if (end_loop()) {
+				return SUCCESS_PARSE;
+			}
+		}
+	}
+
+	return FAILED_PARSE;
+}
+
+int while_cond_part() {
+	if (keyWord(WHILE)) {
+		if (expression()) {
+			if (keyWord(LOOP)) {
+				return SUCCESS_PARSE;
+			}
+		}
+	}
+
+	return FAILED_PARSE;
+}
+
+int end_loop() {
+		if (keyWord(END)) {
+			if (keyWord(LOOP)) {
+				if (keyWord(';')) {
+					return SUCCESS_PARSE;
+				}
+			}
+		}
+
+	return FAILED_PARSE;
+}
+
+int return_statement() {
+	if (keyWord(RETURN)) {
+		if (expression()) {
+			if (keyWord(';')) {
+				hasReturn = 1;
+				return SUCCESS_PARSE;
+			}
+		}
+	}
+
 	return FAILED_PARSE;
 }

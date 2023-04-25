@@ -128,7 +128,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ipw.c" />
-    <ClCompile Include="Lexer.c" />
+    <ClCompile Include="Lexer.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Parser.c" />
   </ItemGroup>
   <ItemGroup>
