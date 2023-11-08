@@ -3,9 +3,9 @@
 #define FAILED_PARSE 0
 
 struct {
-	int tokenNo;
-	int tokenLineNo;
-	char* tokenText;
+    int tokenNo;
+    int tokenLineNo;
+    char* tokenText;
 } typedef Token;
 
 void freeTokenText(char* tokenText);
